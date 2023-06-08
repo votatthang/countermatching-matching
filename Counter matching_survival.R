@@ -1,5 +1,7 @@
 library("survival")
 
+# Counter-matching without confounders and one proxy
+   
 pvalue.match = c()
 pvalue.cmatch = c()
 nsim = 500
@@ -21,7 +23,7 @@ for(z in 1:nsim){
     
     ## Calculate coefficients
     b0=med0*log(2)^(-1/a)
-    b.x2 = log (hr.x2)
+    b.x2 = log (hr.x2)  
     
     ## simulate non-censored event time
     t.event <- rweibull(n = n, shape = a,
