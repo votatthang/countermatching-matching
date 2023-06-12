@@ -1,7 +1,5 @@
 library("survival")
 
-# Counter-matching without confounders and one proxy
-   
 pvalue.match = c()
 pvalue.cmatch = c()
 nsim = 500
@@ -11,29 +9,37 @@ for(z in 1:nsim){
   
   # x1: proxy
   # x2: treatment
+  # conf: confounder
   sim <- function(n=10000, a = 2, med0 = 140,
-                  p.x2 = 0.5, sen = 0.9, spe = 0.9,
-                  hr.x2 = 1.5) {
+                  #p.x2 = 0.5, sen = 0.9, spe = 0.9,
+                  p.x1 = 0.5, p.conf = 0.5,
+                  hr.x2 = 1,
+                  hr.conf = 1.5) {
     
-    ## simulate pred1, pred2, prog1
-    x2 <- rbinom(n, 1, p.x2)
-    x1 <- x2
-    x1[which(x2==1)] = rbinom(sum(x2), 1, sen)
-    x1[which(x2==0)] = rbinom(n - sum(x2), 1, 1 - spe)
+    ## simulate x1, x2, x3
+    #x2 <- rbinom(n, 1, p.x2)
+    #x1 <- x2
+    #x1[which(x2==1)] = rbinom(sum(x2), 1, sen)
+    #x1[which(x2==0)] = rbinom(n - sum(x2), 1, 1 - spe)
+    
+    x1 = rbinom(n,1,p.x1)
+    conf = rbinom(n,1,p.conf)
+    x2 = rbinom(n,1, exp(-2 + 4*x1 + 1*conf)/(1+exp(-2 + 4*x1 + 1*conf)))
     
     ## Calculate coefficients
     b0=med0*log(2)^(-1/a)
     b.x2 = log (hr.x2)  
+    b.conf = log(hr.conf)
     
     ## simulate non-censored event time
     t.event <- rweibull(n = n, shape = a,
-                        scale = b0 * exp((-b.x2*x2)/a))
+                        scale = b0 * exp((-b.x2*x2 - b.conf*conf)/a))
     
     ## simulate non-informative censoring
     t.cens=rweibull (n = n, shape = a, scale = 50)
     ## get final simulated data
     tobs <- pmin(t.event, t.cens)
-    out <- data.frame(x1, x2,
+    out <- data.frame(x1, x2, conf,
                       tobs,
                       stt = as.numeric(tobs == t.event), 
                       id = 1:n)
@@ -70,7 +76,7 @@ for(z in 1:nsim){
       all.ctrl = source.noc[(i+1):n,]
       
       # All non-cases eligible to be matched with the case i
-      ctrl = all.ctrl[which(all.ctrl$sel == 0),]
+      ctrl = all.ctrl[which(all.ctrl$sel == 0 & all.ctrl$conf == source.noc$conf[i]),]
       
       # Select one candidate from ctrl set
       ctrl.i.id = sample(ctrl$id, size= 1)
@@ -125,7 +131,9 @@ for(z in 1:nsim){
       all.ctrl = source[(i+1):n,]
       
       # All non-cases eligible to be counter-matched with the case i
-      ctrl = all.ctrl[which(all.ctrl$x1 == 1-source$x1[i] & all.ctrl$sel == 0),]
+      ctrl = all.ctrl[which(all.ctrl$x1 == 1-source$x1[i] & 
+                              all.ctrl$conf == source$conf[i] &
+                              all.ctrl$sel == 0),]
       
       # Select one candidate from ctrl set
       ctrl.i.id = sample(ctrl$id, size= 1)
